@@ -7,6 +7,7 @@ A modern, feature-rich text-to-speech application that converts text to natural-
 ## ✨ Features
 
 - **Text-to-Speech Conversion**: Convert any text to speech with a single click
+- **Audio Download**: Save generated speech as audio files for later use
 - **Multiple Voice Options**: Choose from various voices available on your device/browser
 - **Language Filtering**: Filter voices by language for easier selection
 - **Speed & Pitch Control**: Adjust speech rate and pitch to customize the output
