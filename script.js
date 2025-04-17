@@ -15,6 +15,7 @@ const speakBtn = document.getElementById('speak-btn');
 const pauseBtn = document.getElementById('pause-btn');
 const resumeBtn = document.getElementById('resume-btn');
 const stopBtn = document.getElementById('stop-btn');
+const downloadBtn = document.getElementById('download-btn');
 const clearBtn = document.getElementById('clear-btn');
 const sampleBtn = document.getElementById('sample-btn');
 const charCount = document.querySelector('.character-count');
@@ -22,6 +23,11 @@ const audioWave = document.getElementById('audio-wave');
 const helpBtn = document.getElementById('help-btn');
 const helpModal = document.getElementById('help-modal');
 const closeModal = document.querySelector('.close-modal');
+
+// Create audio element for speech synthesis and download
+const audioElement = document.createElement('audio');
+audioElement.style.display = 'none';
+document.body.appendChild(audioElement);
 
 // Sample texts
 const sampleTexts = [
@@ -167,6 +173,9 @@ speakBtn.addEventListener('click', () => {
         return;
     }
     
+    // Reset download button
+    downloadBtn.disabled = true;
+    
     // Cancel any ongoing speech
     if (synth.speaking) {
         synth.cancel();
@@ -192,34 +201,112 @@ speakBtn.addEventListener('click', () => {
     isSpeaking = true;
     updateVisualization(true);
     
-    // Speak
-    synth.speak(utterance);
+    // Generate speech
+    generateSpeechAudio(text, utterance.voice, utterance.rate, utterance.pitch)
+        .then(audioUrl => {
+            // Play the audio
+            audioElement.src = audioUrl;
+            audioElement.play();
+            
+            // Enable download button
+            downloadBtn.disabled = false;
+            
+            // Set up download button to use this audio
+            downloadBtn.onclick = () => {
+                const a = document.createElement('a');
+                a.href = audioUrl;
+                
+                // Generate filename from text
+                let fileName = text.substring(0, 15);
+                fileName = fileName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+                a.download = `speech_${fileName}.mp3`;
+                
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            };
+        })
+        .catch(error => {
+            console.error('Error generating speech:', error);
+            alert('Failed to generate speech audio');
+        });
     
     // Disable speak button while speaking
-    utterance.onstart = () => {
+    speakBtn.disabled = true;
+    
+    // Handle audio events
+    audioElement.onplaying = () => {
         speakBtn.disabled = true;
+        updateVisualization(true);
     };
     
-    // Enable speak button when done
-    utterance.onend = () => {
+    audioElement.onended = () => {
         speakBtn.disabled = false;
         isSpeaking = false;
         updateVisualization(false);
     };
     
-    // Handle errors
-    utterance.onerror = (event) => {
-        console.error('SpeechSynthesis Error:', event.error);
+    audioElement.onerror = () => {
+        console.error('Audio playback error');
         speakBtn.disabled = false;
         isSpeaking = false;
         updateVisualization(false);
     };
 });
 
+// Function to generate speech audio and return a URL
+async function generateSpeechAudio(text, voice, rate, pitch) {
+    // We'll use a text-to-speech service API that supports download
+    // For this example, we'll use a simulated approach
+    
+    return new Promise((resolve, reject) => {
+        try {
+            // Create utterance
+            const tempUtterance = new SpeechSynthesisUtterance(text);
+            
+            // Set voice if provided
+            if (voice) {
+                tempUtterance.voice = voice;
+            }
+            
+            // Set rate and pitch
+            tempUtterance.rate = rate || 1;
+            tempUtterance.pitch = pitch || 1;
+            
+            // Since direct audio capture from SpeechSynthesis isn't possible in all browsers,
+            // we'll provide an alternative by creating a data URI with the text
+            // that will be transformed server-side (in a real implementation)
+            
+            // For demonstration, we'll create a data URI that describes what would be spoken
+            const voiceName = voice ? voice.name : 'Default';
+            const dataString = `Text: ${text}\nVoice: ${voiceName}\nRate: ${rate}\nPitch: ${pitch}`;
+            const base64Data = btoa(dataString);
+            
+            // In a real implementation, you would call a server API here to generate the audio
+            // For now, we'll show an alert explaining the limitation
+            alert('Due to browser security restrictions, direct audio download from the Web Speech API is not supported. In a production environment, this would use a server-side API to generate downloadable audio files.');
+            
+            // Simulate a short delay to represent processing time
+            setTimeout(() => {
+                // This is just a placeholder. In a real implementation, 
+                // this would be an actual audio data URI or blob URL
+                const mockAudioUrl = `data:audio/mp3;base64,${base64Data}`;
+                resolve(mockAudioUrl);
+            }, 500);
+            
+            // Speak using the Web Speech API for the actual speech
+            speechSynthesis.speak(tempUtterance);
+        } catch (error) {
+            reject(error);
+        }
+    });
+}
+
 // Pause, Resume, and Stop functionality
 pauseBtn.addEventListener('click', () => {
     if (synth.speaking && !synth.paused) {
         synth.pause();
+        audioElement.pause();
         updateVisualization(false);
     }
 });
@@ -227,6 +314,7 @@ pauseBtn.addEventListener('click', () => {
 resumeBtn.addEventListener('click', () => {
     if (synth.speaking && synth.paused) {
         synth.resume();
+        audioElement.play();
         updateVisualization(true);
     }
 });
@@ -234,6 +322,8 @@ resumeBtn.addEventListener('click', () => {
 stopBtn.addEventListener('click', () => {
     if (synth.speaking) {
         synth.cancel();
+        audioElement.pause();
+        audioElement.currentTime = 0;
         speakBtn.disabled = false;
         isSpeaking = false;
         updateVisualization(false);
